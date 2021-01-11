@@ -104,11 +104,11 @@ export default {
       let items = orderText.split("\n");
       let valid = true;
       for (let i = 0; i < items.length; i++) {
-        let itemDetails = items[i].split(" - ");
-        let itemSize = itemDetails[0];
+        let itemDetails = items[i].split("-");
+        let itemSize = itemDetails[0].trim();
         let itemToppings = [];
         if (itemDetails.length > 1) {
-          itemToppings = itemDetails[1].split(",");
+          itemToppings = itemDetails[1].trim().split(",");
           itemToppings = itemToppings.filter(function(topping) {
             return topping != "";
           });
