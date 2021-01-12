@@ -11,7 +11,7 @@
       name="input-7-4"
       label="Outlined textarea"
     ></v-textarea>
-    <v-btn color="primary" @click="validateInput(orderText)">
+    <v-btn color="primary" @click="calculatePizzas()">
       Validate
     </v-btn>
     <p v-if="!valid">the input is not valid, please follow the format</p>
@@ -31,7 +31,7 @@
           </p>
           <br />
         </div>
-        <p>{{ "Subtotal: $" + calculateTotal() }}</p>
+        <p>{{ "Subtotal: $" + total.toFixed(2) }}</p>
         <p>{{ "GST: $" + (total * 0.05).toFixed(2) }}</p>
         <p>{{ "Total: $" + (total * 1.05).toFixed(2) }}</p>
       </div>
@@ -88,60 +88,49 @@ export default {
   },
 
   methods: {
-    //   this function is used to validate every item in the order text as follows
+    //   the goal isto validate every item in the order text as follows
     //   clear the orders array to start a new bill
     //   spliting lines so each item can be processed individually
     //   spliting each line into size and toppings
-    //   spliting toppings to chech every topping
+    //   spliting toppings to check each topping
     //   gitting rid of all possible spaces that migh the user enter
     //   check if item data is valid to be added to the order array
     //   check if all data is valid to show the bill
-
-    validateInput(orderText) {
+    calculatePizzas() {
       this.orders = [];
-      let prices = this.prices;
-      orderText = orderText.trim();
-      let items = orderText.split("\n");
+      let items = this.orderText.trim().split("\n");
       let valid = true;
+      this.total = 0;
       for (let i = 0; i < items.length; i++) {
-        let itemDetails = items[i].split("-");
-        let itemSize = itemDetails[0].trim();
-        let itemToppings = [];
-        if (itemDetails.length > 1) {
-          itemToppings = itemDetails[1].trim().split(",");
-          itemToppings = itemToppings.filter(function(topping) {
-            return topping != "";
-          });
-        }
-        if (prices[itemSize] == undefined) {
-          valid = false;
-          break;
-        }
-        itemToppings.forEach((topping) => {
-          topping = topping.trim();
-          if (topping.startsWith("Feta")) {
-            topping = topping.split(" ").join("");
-          }
-
-          if (prices[itemSize][topping] == undefined && topping != "") {
-            valid = false;
-          }
-        });
-
-        if (valid) {
-          this.addToOrders(itemSize, itemToppings);
-        } else {
-          break;
+        valid = this.calculatePizza(items[i]);
+        if (!valid) {
+          this.valid = false;
+          return;
         }
       }
-
-      this.valid = valid;
-      if (valid) {
-        this.$modal.show("bill");
-      }
+      this.$modal.show("bill");
     },
-    // this is to create an order object that has the order text, quantity and price
-    addToOrders(itemSize, itemToppings) {
+    calculatePizza(item) {
+      let itemPrice = 0;
+      let valid = true;
+      let itemDetails = item.split("-");
+      let itemSize = itemDetails[0].trim();
+      let itemToppings = [];
+      if (itemDetails.length > 1) {
+        itemToppings = itemDetails[1].trim().split(",");
+        itemToppings = itemToppings.filter(function(topping) {
+          return topping != "";
+        });
+      }
+      if (this.prices[itemSize] == undefined) {
+        return false;
+      }
+      this.total += this.prices[itemSize].price;
+      itemPrice = this.prices[itemSize].price;
+      valid = this.calculateToppings(itemToppings, itemSize, itemPrice);
+      return valid;
+    },
+    calculateToppings(toppings, itemSize, itemPrice) {
       let digits = [
         "Zero",
         "One",
@@ -153,18 +142,21 @@ export default {
         "Seven",
         "Eight",
       ];
-      let itemPrice = 0;
-      let quantity = 1;
       let orderText =
-        itemSize + ", " + digits[itemToppings.length] + " Topping Pizza - ";
-      itemPrice += this.prices[itemSize]["price"];
-      for (let i = 0; i < itemToppings.length; i++) {
-        let topping = itemToppings[i].trim();
+        itemSize + ", " + digits[toppings.length] + " Topping Pizza - ";
+      let prices = this.prices;
+      for (let i = 0; i < toppings.length; i++) {
+        let topping = toppings[i].trim();
         if (topping.startsWith("Feta")) {
           topping = topping.split(" ").join("");
         }
-        itemPrice += this.prices[itemSize][topping];
-        if (i == itemToppings.length - 1 && itemToppings.length != 1) {
+
+        if (prices[itemSize][topping] == undefined && topping != "") {
+          return false;
+        }
+        this.total += prices[itemSize][topping];
+        itemPrice += prices[itemSize][topping];
+        if (i == toppings.length - 1 && toppings.length != 1) {
           orderText += " and " + topping;
         } else if (i == 0) {
           orderText += topping;
@@ -172,7 +164,7 @@ export default {
           orderText += ", " + topping;
         }
       }
-
+      let quantity = 1;
       let order = {
         orderText: orderText,
         price: itemPrice,
@@ -184,6 +176,8 @@ export default {
       } else {
         this.orders[index].quantity += 1;
       }
+
+      return true;
     },
     orderExist(order) {
       for (let i = 0; i < this.orders.length; i++) {
@@ -192,15 +186,6 @@ export default {
         }
       }
       return -1;
-    },
-    // to calculate the total before adding GST
-    calculateTotal() {
-      let total = 0;
-      this.orders.forEach((order) => {
-        total += order.quantity * order.price;
-      });
-      this.total = total.toFixed(2);
-      return this.total;
     },
   },
 };
